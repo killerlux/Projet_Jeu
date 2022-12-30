@@ -1,0 +1,2687 @@
+File: ./src/Entity/Joueur.java
+package Entity;
+
+import Item.*;
+import main.GamePanel;
+import main.KeyHandler;
+
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+
+
+public class Joueur extends Entity{
+
+    KeyHandler keyHandler;
+    public final int AxeAbcisse;
+    public final int AxeOrdonnee;
+    public boolean AnnulationAttaque = false;
+    public ArrayList<Entity> inventaire = new ArrayList<Entity>();
+    public final int inventaireCapacity = 20;
+
+    public Joueur(GamePanel gamePanel, KeyHandler keyHandler){
+        super(gamePanel);
+        this.keyHandler = keyHandler;
+
+        AxeAbcisse = gamePanel.getScreenWidth()/2 - (gamePanel.getTileSize()/2);
+        AxeOrdonnee = gamePanel.getScreenHeight()/2 - (gamePanel.getTileSize()/2);
+
+        hitboxCollision = new Rectangle(8, 16, 32, 32);
+        hitboxCollisionDefaultX = hitboxCollision.x;
+        hitboxCollisionDefaultY = hitboxCollision.y;
+
+        setDefaultValues();
+        getJoueurImage();
+        getJoueurAttackImage();
+        setterObjet();
+    }
+
+    public void setDefaultValues(){
+        //intiilisation de la position du joueur
+        mondeAxeAbscisse = gamePanel.getTileSize() * 20;
+        mondeAxeOrdonnee = gamePanel.getTileSize() * 20;
+        speed = 4;
+        direction = "down";
+
+        //Joueur status
+        level = 1;
+        PdvMax = 6;
+        Pdv = PdvMax;//points de vie
+        strenght = 1; //plus de force = plus de dégats
+        agilite = 1; //plus d'agilité = moisn de degats subis
+        exp = 0;
+        niveauSuivantExperience = 5;
+        Argent = 0;
+        ArmeActuelle = new Epee(gamePanel);
+        BouclierActuel = new BouclierBois(gamePanel);
+        attack = AttaqueDegats(); //total attack value is decided by strength and weapon
+        defence = calculateDefence(); //vice versa with dex and shield
+    }
+
+    public void setterObjet(){
+        inventaire.add(ArmeActuelle);
+        inventaire.add(BouclierActuel);
+        inventaire.add(new Hache(gamePanel));
+        inventaire.add(new BouclierBleu(gamePanel));
+        inventaire.add(new PotionRouge(gamePanel));
+    }
+
+    public int AttaqueDegats(){
+        HitboxDeLattaque = ArmeActuelle.HitboxDeLattaque;
+        return attack = strenght * ArmeActuelle.attackValue;
+    }
+
+    public int calculateDefence(){
+
+        return defence = agilite * BouclierActuel.defenceValue;
+    }
+
+    public void getJoueurImage(){
+        haut1 = setup("/Joueur/Walking sprites/boy_up_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        haut2 = setup("/Joueur/Walking sprites/boy_up_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+        bas1 = setup("/Joueur/Walking sprites/boy_down_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        bas2 = setup("/Joueur/Walking sprites/boy_down_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+        gauche1 = setup("/Joueur/Walking sprites/boy_left_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        gauche2 = setup("/Joueur/Walking sprites/boy_left_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+        droit1 = setup("/Joueur/Walking sprites/boy_right_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        droit2 = setup("/Joueur/Walking sprites/boy_right_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+    }
+
+    public void getJoueurAttackImage(){
+
+        if(ArmeActuelle.type == type_sword){
+            attackhaut1 = setup("/Joueur/Attacking sprites/boy_attack_up_1", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackhaut2 = setup("/Joueur/Attacking sprites/boy_attack_up_2", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackbas1 = setup("/Joueur/Attacking sprites/boy_attack_down_1", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackbas2 = setup("/Joueur/Attacking sprites/boy_attack_down_2", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackgauche1 = setup("/Joueur/Attacking sprites/boy_attack_left_1", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+            attackgauche2 = setup("/Joueur/Attacking sprites/boy_attack_left_2", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+            attackdroit1 = setup("/Joueur/Attacking sprites/boy_attack_right_1", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+            attackdroit2 = setup("/Joueur/Attacking sprites/boy_attack_right_2", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+        }
+        if(ArmeActuelle.type == type_axe){
+            attackhaut1 = setup("/Joueur/Attacking sprites/boy_axe_up_1", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackhaut2 = setup("/Joueur/Attacking sprites/boy_axe_up_2", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackbas1 = setup("/Joueur/Attacking sprites/boy_axe_down_1", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackbas2 = setup("/Joueur/Attacking sprites/boy_axe_down_2", gamePanel.getTileSize(), gamePanel.getTileSize()*2);
+            attackgauche1 = setup("/Joueur/Attacking sprites/boy_axe_left_1", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+            attackgauche2 = setup("/Joueur/Attacking sprites/boy_axe_left_2", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+            attackdroit1 = setup("/Joueur/Attacking sprites/boy_axe_right_1", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+            attackdroit2 = setup("/Joueur/Attacking sprites/boy_axe_right_2", gamePanel.getTileSize()*2, gamePanel.getTileSize());
+        }
+
+
+    }
+
+    @Override
+    public void update(){
+
+        if(EtatAttaque){
+            EtatAttaque();
+        }
+        //si joueur bouge pas , incrémentation compteur
+        else if (keyHandler.upPressed || keyHandler.downPressed ||
+                keyHandler.rightPressed || keyHandler.leftPressed || keyHandler.enterPressed){
+
+            // touches pour faire bouger le joueur
+            if(keyHandler.upPressed){
+                direction = "up";
+            }
+            else if(keyHandler.downPressed){
+                direction = "down";
+            }
+            else if(keyHandler.leftPressed){
+                direction = "left";
+            }
+            else if(keyHandler.rightPressed){
+                direction = "right";
+            }
+
+            // test collision
+            collisionOn = false;
+            gamePanel.checker.checkTile(this);
+
+            //test   collision objet
+            int itemIndex = gamePanel.checker.checkItem(this, true);
+            Ramassageobjet(itemIndex);
+
+            //test collision pnj
+            int npcIndex = gamePanel.checker.checkEntity(this, gamePanel.npcs);
+            PNJInteractions(npcIndex);
+
+            //test collision monstre
+            int monsterIndex = gamePanel.checker.checkEntity(this, gamePanel.monsters);
+            CollisionMonstre(monsterIndex);
+
+            //test evenement
+            gamePanel.eventHandler.checkEvent();
+
+            //si collision , le joueur bouge plus
+            if(!collisionOn && !keyHandler.enterPressed){
+                switch (direction) {
+                    case "up" -> mondeAxeOrdonnee -= speed;
+                    case "down" -> mondeAxeOrdonnee += speed;
+                    case "left" -> mondeAxeAbscisse -= speed;
+                    case "right" -> mondeAxeAbscisse += speed;
+                }
+            }
+
+            if(keyHandler.enterPressed && !AnnulationAttaque){
+                gamePanel.playSFX(7);
+                EtatAttaque = true;
+                CompteurSprite = 0;
+            }
+
+            AnnulationAttaque = false;
+            gamePanel.keyHandler.enterPressed = false;
+
+            //changement de l'image du joueur tous les x fps
+            int fpsAjustement = 12;
+            CompteurSprite++;
+            if(CompteurSprite > fpsAjustement){
+                if(numeroDuSprite == 1){
+                    numeroDuSprite = 2;
+                } else if (numeroDuSprite == 2){
+                    numeroDuSprite = 1;
+                }
+                CompteurSprite = 0;
+            }
+        }
+
+        if(invincible){
+            invincibleCounter++;
+            if(invincibleCounter>30){
+                invincible = false;
+                invincibleCounter = 0;
+            }
+        }
+
+    }
+
+    public void EtatAttaque(){
+        CompteurSprite++;
+
+        //Montrer l'attaque du sprite numéro 1 pour un nombre de X de pixels 
+        if(CompteurSprite <= 5){
+            numeroDuSprite = 1;
+        }
+        //Montrer l'attaque du sprite numéro 2 pour un nombre de X de pixels 
+        if(CompteurSprite > 5 && CompteurSprite <= 25){
+            numeroDuSprite = 2;
+
+
+            //sauvegarder le monde mondeX et Y en hitboxCollision
+            int currentmondeAxeAbscisse = mondeAxeAbscisse;
+            int currentmondeAxeOrdonnee = mondeAxeOrdonnee;
+            int hitboxCollisionWidth = hitboxCollision.width;
+            int hitboxCollisionHeight = hitboxCollision.height;
+
+            //Ajustement du monde du joueur X et Y pour attackAdjust Joueur's world(X and Y) for the HitboxDeLattaque
+            switch (direction) {
+                case "up" -> mondeAxeOrdonnee -= HitboxDeLattaque.height;
+                case "down" -> mondeAxeOrdonnee += HitboxDeLattaque.height;
+                case "left" -> mondeAxeAbscisse -= HitboxDeLattaque.width;
+                case "right" -> mondeAxeAbscisse += HitboxDeLattaque.width;
+            }
+
+            //HitboxDeLattaque devient hitboxCollision
+            hitboxCollision.width = HitboxDeLattaque.width;
+            hitboxCollision.height = HitboxDeLattaque.height;
+
+            //teste si y'a collision de monstre avec worldX et Y
+            int monsterIndex = gamePanel.checker.checkEntity(this, gamePanel.monsters);
+            damageMonster(monsterIndex);
+
+            //Après avoir testé la collision , retour aux valeurs d'origine
+            mondeAxeAbscisse = currentmondeAxeAbscisse;
+            mondeAxeOrdonnee = currentmondeAxeOrdonnee;
+            hitboxCollision.width = hitboxCollisionWidth;
+            hitboxCollision.height = hitboxCollisionHeight;
+        }
+        //reset du sprite de l'a'ttaque
+        if(CompteurSprite > 25){
+            numeroDuSprite = 1;
+            CompteurSprite = 0;
+            EtatAttaque = false;
+        }
+    }
+
+    public void Ramassageobjet(int index){
+        if(index != 999) {
+
+            String text = "";
+
+            if(inventaire.size() != inventaireCapacity) {
+                inventaire.add(gamePanel.items[index]);
+                gamePanel.playSFX(1);
+                text = "Un  " + gamePanel.items[index].name + " a été obtenu !";
+            }
+            else{
+                gamePanel.gameState = gamePanel.EtatDialogue;
+                gamePanel.ui.currentDialogue = "Inventaire plein ! ";
+            }
+            gamePanel.ui.addMessage(text);
+            gamePanel.items[index] = null;
+        }
+    }
+
+    public void PNJInteractions(int index) {
+
+        if (gamePanel.keyHandler.enterPressed) {
+            if (index != 999) {
+                AnnulationAttaque = true;
+                gamePanel.gameState = gamePanel.EtatDialogue;
+                gamePanel.npcs[index].parler();
+            }
+        }
+    }
+
+    public void CollisionMonstre(int index){
+        if(index != 999 && !invincible) {
+            gamePanel.playSFX(6);
+
+            int damage = gamePanel.monsters[index].attack - defence;
+            if(damage < 0){
+                damage = 0;
+            }
+
+            Pdv -= damage;
+            gamePanel.ui.addMessage(damage + " Dégâts reçus !");
+
+            invincible = true;
+        }
+    }
+
+    public void damageMonster(int index){
+        if(index != 999){
+            if(!gamePanel.monsters[index].invincible){
+                gamePanel.playSFX(5);
+
+                int damage = attack - gamePanel.monsters[index].defence;
+                if(damage < 0){
+                    damage = 0;
+                }
+                //damaging monster
+                gamePanel.monsters[index].Pdv -= damage;
+                gamePanel.monsters[index].invincible = true;
+                gamePanel.monsters[index].damageReaction();
+
+                //killing monster
+                if(gamePanel.monsters[index].Pdv <= 0){
+                  gamePanel.monsters[index].isDying = true;
+                  gamePanel.ui.addMessage(gamePanel.monsters[index].name + " tué!");
+                  gamePanel.ui.addMessage(gamePanel.monsters[index].exp + " points d'expérience ");
+                  exp += gamePanel.monsters[index].exp;
+                  NiveauSuivantTest();
+                }
+            }
+        }
+    }
+
+    public void NiveauSuivantTest(){
+        if(exp >= niveauSuivantExperience){
+            level++;
+            niveauSuivantExperience = niveauSuivantExperience*3;
+            PdvMax += 2;
+            strenght++;
+            agilite++;
+            attack = AttaqueDegats();
+            defence = calculateDefence();
+            gamePanel.playSFX(8);
+            gamePanel.gameState = gamePanel.EtatDialogue;
+            gamePanel.ui.currentDialogue = "Le niveau " + level + " Atteint!/n" +
+                    "Vous etes devenu puissant !";
+        }
+    }
+
+    public void selectiondelObjet(){
+
+        int itemIndex = gamePanel.ui.getItemIndexOnSlot();
+
+        if(itemIndex < inventaire.size()){
+
+            Entity ObjetSelectionne = inventaire.get(itemIndex);
+
+            if(ObjetSelectionne.type == type_sword || ObjetSelectionne.type == type_axe){
+                ArmeActuelle = ObjetSelectionne;
+                attack = AttaqueDegats();
+                getJoueurAttackImage();
+            }
+
+            if(ObjetSelectionne.type == type_shield){
+                BouclierActuel = ObjetSelectionne;
+                defence = calculateDefence();
+            }
+            if(ObjetSelectionne.type == type_consumable){
+                ObjetSelectionne.use(this);
+                inventaire.remove(itemIndex);
+            }
+        }
+    }
+
+    public void draw(Graphics2D g2){
+        //tracage Joueur sprite
+        BufferedImage image = null;
+        int tempAxeAbcisse = AxeAbcisse;
+        int tempAxeOrdonnee = AxeOrdonnee;
+
+        switch (direction) {
+            case "up" -> {
+
+                if(EtatAttaque){
+                    tempAxeOrdonnee = AxeOrdonnee - gamePanel.getTileSize();
+                    if (numeroDuSprite == 1) {
+                        image = attackhaut1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = attackhaut2;
+                    }
+                }
+                if(!EtatAttaque){
+                    if (numeroDuSprite == 1) {
+                        image = haut1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = haut2;
+                    }
+                }
+            }
+            case "down" -> {
+                if(!EtatAttaque){
+                    if (numeroDuSprite == 1) {
+                        image = bas1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = bas2;
+                    }
+                }
+                if(EtatAttaque){
+                    if (numeroDuSprite == 1) {
+                        image = attackbas1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = attackbas2;
+                    }
+                }
+            }
+            case "left" -> {
+
+                if(EtatAttaque){
+                    tempAxeAbcisse = AxeAbcisse - gamePanel.getTileSize();
+                    if (numeroDuSprite == 1) {
+                        image = attackgauche1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = attackgauche2;
+                    }
+                }
+                if(!EtatAttaque){
+                    if (numeroDuSprite == 1) {
+                        image = gauche1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = gauche2;
+                    }
+                }
+            }
+            case "right" -> {
+                if(!EtatAttaque){
+                    if (numeroDuSprite == 1) {
+                        image = droit1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = droit2;
+                    }
+                }
+                if(EtatAttaque){
+                    if (numeroDuSprite == 1) {
+                        image = attackdroit1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = attackdroit2;
+                    }
+                }
+            }
+        }
+
+        //L'opacite du joueur diminue
+        if(invincible){
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        }
+
+        g2.drawImage(image, tempAxeAbcisse, tempAxeOrdonnee, null);
+
+        //reset de l'alpha
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+    }
+}
+File: ./src/Entity/Entity.java
+package Entity;
+
+import main.GamePanel;
+import main.UtilityTool;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.Objects;
+
+/**
+ * Cette classe représente une entité dans le jeu, comme un personnage, un ennemi ou un objet.
+ */
+public class Entity {
+
+    // Panneau de jeu dans lequel se trouve l'entité
+    public GamePanel gamePanel;
+
+    // Dialogues de l'entité
+    public String[] dialogues = new String[20];
+
+    // Coordonnées de l'entité dans le monde
+    public int mondeAxeAbscisse, mondeAxeOrdonnee;
+
+    // Zone de collision de l'entité
+    public Rectangle hitboxCollision = new Rectangle(0, 0, 48, 48);
+
+    // Coordonnées par défaut de la zone de collision
+    public int hitboxCollisionDefaultX;
+    public int hitboxCollisionDefaultY;
+
+    // Zone d'attaque de l'entité
+    public Rectangle HitboxDeLattaque = new Rectangle(0, 0, 0, 0);
+
+    // Images de l'entité selon les différentes directions et actions
+    public BufferedImage haut1, haut2, bas1, bas2, gauche1, gauche2, droit1, droit2;
+    public BufferedImage attackhaut1, attackhaut2, attackbas1, attackbas2, attackgauche1, attackgauche2,
+            attackdroit1, attackdroit2;
+
+    // Compteurs et index
+    public int IndexDuDialogue = 0;
+    public int invincibleCounter = 0;
+    public int CompteurSprite = 0;
+    public int CompteurAction = 0;
+    public int CompteurDeMorts = 0;
+    int hpBarCounter = 0;
+
+    // États de l'entité
+    public int numeroDuSprite = 1;
+    public String direction = "down"; // direction actuelle de l'entité
+    public boolean invincible = false; // indique si l'entité est actuellement invulnérable
+    public boolean EtatAttaque = false; // indique si l'entité est en train d'attaquer
+    public boolean collisionOn = false; // indique si l'entité est en collision avec un autre objet
+    public boolean isAlive = true; // indique si l'entité est vivante
+    public boolean isDying = false; // indique si l'entité est en train de mourir
+    boolean hpBarOn = false; // indique si la barre de vie de l'entité est affichée
+
+    // Types d'entité
+    public int type;
+    public final int type_Joueur = 0;
+    public final int type_npc = 1;
+    public final int type_monster = 2;
+    public final int type_sword = 3;
+    public final int type_axe = 4;
+    public final int type_shield = 5;
+    public final int type_consumable = 6;
+
+
+    //Objet
+    public BufferedImage image, image2, image3;
+    public String name;
+    public boolean collision = false;
+
+
+    //Caractéristiques personnage
+    public int PdvMax;
+    public int Pdv;
+    public int speed;
+    public int level;
+    public int attack;
+    public int strenght;
+    public int agilite;
+    public int defence;
+    public int exp;
+    public int niveauSuivantExperience;
+    public int Argent;
+    public Entity ArmeActuelle;
+    public Entity BouclierActuel;
+
+    //Item attributes
+    public int attackValue;
+    public int defenceValue;
+    public String itemDescription = "";
+
+    public Entity(GamePanel gamePanel) {
+        this.gamePanel = gamePanel;
+    }
+
+    public void SetterAction() {
+    }
+
+    public void damageReaction() {
+    }
+
+    public void parler() {
+        gamePanel.ui.currentDialogue = dialogues[IndexDuDialogue];
+        IndexDuDialogue++;
+
+        switch (gamePanel.Joueur.direction) {
+            case "up" -> direction = "down";
+            case "down" -> direction = "up";
+            case "left" -> direction = "right";
+            case "right" -> direction = "left";
+        }
+    }
+
+    public void use(Entity entity) {
+    }
+
+    public void update() {
+        SetterAction();
+
+        collisionOn = false;
+        gamePanel.checker.checkTile(this);
+        gamePanel.checker.checkItem(this, false);
+        boolean contactJoueur = gamePanel.checker.checkJoueur(this);
+        gamePanel.checker.checkEntity(this, gamePanel.npcs);
+        gamePanel.checker.checkEntity(this, gamePanel.monsters);
+
+        if (this.type == type_monster && contactJoueur && !gamePanel.Joueur.invincible) {
+            gamePanel.playSFX(6);
+
+            int damage = attack - gamePanel.Joueur.defence;
+            if (damage < 0) {
+                damage = 0;
+            }
+
+            gamePanel.Joueur.Pdv -= damage;
+            gamePanel.Joueur.invincible = true;
+        }
+
+        if (!collisionOn) {
+            switch (direction) {
+                case "up" -> mondeAxeOrdonnee -= speed;
+                case "down" -> mondeAxeOrdonnee += speed;
+                case "left" -> mondeAxeAbscisse -= speed;
+                case "right" -> mondeAxeAbscisse += speed;
+            }
+        }
+        int fpsAjustement = 12;
+        CompteurSprite++;
+        if (CompteurSprite > fpsAjustement) {
+            if (numeroDuSprite == 1) {
+                numeroDuSprite = 2;
+            } else if (numeroDuSprite == 2) {
+                numeroDuSprite = 1;
+            }
+            CompteurSprite = 0;
+        }
+
+        if (invincible) {
+            invincibleCounter++;
+            if (invincibleCounter > 30) {
+                invincible = false;
+                invincibleCounter = 0;
+            }
+        }
+    }
+
+    public void draw(Graphics2D g2) {
+        int AxeAbcisse = mondeAxeAbscisse - gamePanel.Joueur.mondeAxeAbscisse + gamePanel.Joueur.AxeAbcisse;
+        int AxeOrdonnee = mondeAxeOrdonnee - gamePanel.Joueur.mondeAxeOrdonnee + gamePanel.Joueur.AxeOrdonnee;
+
+        if (mondeAxeAbscisse + gamePanel.getTileSize() > gamePanel.Joueur.mondeAxeAbscisse - gamePanel.Joueur.AxeAbcisse &&
+                mondeAxeAbscisse - gamePanel.getTileSize() < gamePanel.Joueur.mondeAxeAbscisse + gamePanel.Joueur.AxeAbcisse &&
+                mondeAxeOrdonnee + gamePanel.getTileSize() > gamePanel.Joueur.mondeAxeOrdonnee - gamePanel.Joueur.AxeOrdonnee &&
+                mondeAxeOrdonnee - gamePanel.getTileSize() < gamePanel.Joueur.mondeAxeOrdonnee + gamePanel.Joueur.AxeOrdonnee) {
+
+            BufferedImage image = null;
+            switch (direction) {
+                case "up" -> {
+                    if (numeroDuSprite == 1) {
+                        image = haut1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = haut2;
+                    }
+                }
+                case "down" -> {
+                    if (numeroDuSprite == 1) {
+                        image = bas1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = bas2;
+                    }
+                }
+                case "left" -> {
+                    if (numeroDuSprite == 1) {
+                        image = gauche1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = gauche2;
+                    }
+                }
+                case "right" -> {
+                    if (numeroDuSprite == 1) {
+                        image = droit1;
+                    }
+                    if (numeroDuSprite == 2) {
+                        image = droit2;
+                    }
+                }
+            }
+
+            //Barre de vie du monstre
+            if (type == 2 && hpBarOn) {
+
+                double oneScale = (double) gamePanel.getTileSize() / PdvMax;
+                double hpBarValue = oneScale * Pdv;
+
+                g2.setColor(new Color(35, 35, 35));
+                g2.fillRect(AxeAbcisse - 1, AxeOrdonnee - 4, gamePanel.getTileSize() + 2, 12);
+                g2.setColor(new Color(255, 0, 30));
+                g2.fillRect(AxeAbcisse, AxeOrdonnee - 3, (int) hpBarValue, 10);
+
+                hpBarCounter++;
+
+                //HP bar disappears after x amount of frames
+                if (hpBarCounter > 300) {
+                    hpBarCounter = 0;
+                    hpBarOn = false;
+                }
+            }
+
+            if (invincible) {
+                hpBarOn = true;
+                hpBarCounter = 0;
+                changeAlpha(g2, 0.5f);
+
+            }
+
+            if (isDying) {
+                AnimationMort(g2);
+            }
+
+            g2.drawImage(image, AxeAbcisse, AxeOrdonnee, gamePanel.getTileSize(), gamePanel.getTileSize(), null);
+            changeAlpha(g2, 1f);
+        }
+    }
+
+    public void AnimationMort(Graphics2D g2) {
+        CompteurDeMorts++;
+        int i = 5;
+
+        if (CompteurDeMorts <= i) {
+            changeAlpha(g2, 0f);
+        }
+        if (CompteurDeMorts > i && CompteurDeMorts <= i * 2) {
+            changeAlpha(g2, 1f);
+        }
+        if (CompteurDeMorts > i * 2 && CompteurDeMorts <= i * 3) {
+            changeAlpha(g2, 0f);
+        }
+        if (CompteurDeMorts > i * 3 && CompteurDeMorts <= i * 4) {
+            changeAlpha(g2, 1f);
+        }
+        if (CompteurDeMorts > i * 4 && CompteurDeMorts <= i * 5) {
+            changeAlpha(g2, 0f);
+        }
+        if (CompteurDeMorts > i * 5 && CompteurDeMorts <= i * 6) {
+            changeAlpha(g2, 1f);
+        }
+        if (CompteurDeMorts > i * 6 && CompteurDeMorts <= i * 7) {
+            changeAlpha(g2, 0f);
+        }
+        if (CompteurDeMorts > i * 7 && CompteurDeMorts <= i * 8) {
+            changeAlpha(g2, 1f);
+        }
+        if (CompteurDeMorts > i * 8) {
+            isDying = false;
+            isAlive = false;
+        }
+    }
+
+    public void changeAlpha(Graphics2D g2, float alphaValue) {
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alphaValue));
+    }
+
+    //Chargement et changement de l'échelle de l'image du joueur
+    public BufferedImage setup(String imagePath, int width, int height) {
+        UtilityTool utilityTool = new UtilityTool();
+        BufferedImage image = null;
+        try {
+
+            image = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream(
+                    imagePath + ".png")));
+            image = utilityTool.scaleImage(image, width, height);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return image;
+    }
+
+}
+File: ./src/Entity/sage.java
+package Entity;
+
+import main.GamePanel;
+
+import java.util.Random;
+
+public class sage extends Entity{
+
+    public sage(GamePanel gamePanel){
+        super(gamePanel);
+
+        direction = "down";
+        speed = 1;
+        getImage();
+        setDialogue();
+    }
+
+    public void setDialogue(){
+        dialogues[0] = "Bonjour jeune homme";
+        dialogues[1] = "Alors vous cherchez le tresor perdu?";
+        dialogues[2] = "Moi aussi je l'ai longtemps cherché,/n" +
+                "mais maintenant je suis trop vieux pour cela";
+        dialogues[3] = "J'espère que vous me donnez une partie/n" +
+                "de vos gains si vous y arrivez hahah.";
+    }
+
+    @Override
+    public void parler(){
+        if(dialogues[IndexDuDialogue] == null){
+            IndexDuDialogue = 3;
+        }
+        super.parler();
+    }
+
+    public void getImage(){
+        haut1 = setup("/NPC/_up_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        haut2 = setup("/NPC/_up_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+        bas1 = setup("/NPC/_down_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        bas2 = setup("/NPC/_down_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+        gauche1 = setup("/NPC/_left_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        gauche2 = setup("/NPC/_left_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+        droit1 = setup("/NPC/_right_1", gamePanel.getTileSize(), gamePanel.getTileSize());
+        droit2 = setup("/NPC/_right_2", gamePanel.getTileSize(), gamePanel.getTileSize());
+    }
+
+    //paramétrage du comprotement du pnj
+    @Override
+    public void SetterAction(){
+        CompteurAction++;
+
+        if(CompteurAction == 120){
+            Random random = new Random();
+            int i = random.nextInt(100)+1;
+
+            if(i <= 25){
+                direction = "up";
+            }
+            if(i > 25 && i <= 50){
+                direction = "down";
+            }
+            if(i > 50 && i <= 75){
+                direction = "left";
+            }
+            if(i > 75 && i <= 100){
+                direction = "right";
+            }
+
+            CompteurAction = 0;
+        }
+    }
+
+}
+File: ./src/Tile/TileManager.java
+package Tile;
+
+
+import main.GamePanel;
+import main.UtilityTool;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.Objects;
+
+public class TileManager {
+    GamePanel gamePanel;
+    public Tile[] tile;
+    public int[][] mapTileNum;
+
+    public TileManager(GamePanel gamePanel){
+        this.gamePanel = gamePanel;
+        tile = new Tile[50];
+        mapTileNum = new int[gamePanel.getMaxWorldCol()][gamePanel.getMaxWorldRow()];
+
+        getTileImage();
+        loadMap("/Maps/world");
+    }
+
+    public void getTileImage(){
+        //Placeholders
+        setup(0, "grass00", false);
+        setup(1, "grass00", false);
+        setup(2, "grass00", false);
+        setup(3, "grass00", false);
+        setup(4, "grass00", false);
+        setup(5, "grass00", false);
+        setup(6, "grass00", false);
+        setup(7, "grass00", false);
+        setup(8, "grass00", false);
+        setup(9, "grass00", false);
+
+        //Grass
+        setup(10, "grass00", false);
+        setup(11, "grass01", false);
+        setup(12, "water00", true);
+
+        //Water
+        setup(13, "water01", true);
+        setup(14, "water02", true);
+        setup(15, "water03", true);
+        setup(16, "water04", true);
+        setup(17, "water05", true);
+        setup(18, "water06", true);
+        setup(19, "water07", true);
+        setup(20, "water08", true);
+        setup(21, "water09", true);
+        setup(22, "water10", true);
+        setup(23, "water11", true);
+        setup(24, "water12", true);
+        setup(25, "water13", true);
+
+        //Road
+        setup(26, "road00", false);
+        setup(27, "road01", false);
+        setup(28, "road02", false);
+        setup(29, "road03", false);
+        setup(30, "road04", false);
+        setup(31, "road05", false);
+        setup(32, "road06", false);
+        setup(33, "road07", false);
+        setup(34, "road08", false);
+        setup(35, "road09", false);
+        setup(36, "road10", false);
+        setup(37, "road11", false);
+        setup(38, "road12", false);
+
+        //Earth
+        setup(39, "earth", false);
+
+        //Wall
+        setup(40, "wall", true);
+
+        //Tree
+        setup(41, "tree", true);
+    }
+
+    public void setup(int index, String imageName, boolean collision){
+        UtilityTool utilityTool = new UtilityTool();
+        try{
+            tile[index] = new Tile();
+            tile[index].image = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream(
+                    "/Tiles/" + imageName + ".png")));
+            tile[index].image = utilityTool.scaleImage(tile[index].image, gamePanel.getTileSize(), gamePanel.getTileSize());
+            tile[index].collision = collision;
+
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+
+    }
+
+    public void loadMap(String filepath){
+        try {
+            InputStream is = getClass().getResourceAsStream(filepath);
+            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+
+            int col = 0;
+            int row = 0;
+
+            while (col < gamePanel.getMaxWorldCol() && row < gamePanel.getMaxWorldRow()){
+                String line = br.readLine();
+
+                while(col < gamePanel.getMaxWorldCol()) {
+                    String[] numbers = line.split(" ");
+                    int num = Integer.parseInt(numbers[col]);
+
+                    mapTileNum[col][row] = num;
+                    col++;
+                }
+                if(col == gamePanel.getMaxWorldCol()) {
+                    col = 0;
+                    row++;
+                }
+            }
+            br.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void draw(Graphics2D g2) {
+        int worldCol = 0;
+        int worldRow = 0;
+
+
+        while (worldCol < gamePanel.getMaxWorldCol() && worldRow < gamePanel.getMaxWorldRow()) {
+
+            int tileNum = mapTileNum[worldCol][worldRow];
+
+            //fitting tiles around Joueur movement
+            int mondeAxeAbscisse = worldCol * gamePanel.getTileSize();
+            int mondeAxeOrdonnee = worldRow * gamePanel.getTileSize();
+            int AxeAbcisse = mondeAxeAbscisse - gamePanel.Joueur.mondeAxeAbscisse + gamePanel.Joueur.AxeAbcisse;
+            int AxeOrdonnee = mondeAxeOrdonnee - gamePanel.Joueur.mondeAxeOrdonnee + gamePanel.Joueur.AxeOrdonnee;
+
+            //procedurally generating tiles around Joueur movement
+            if(mondeAxeAbscisse + gamePanel.getTileSize()> gamePanel.Joueur.mondeAxeAbscisse - gamePanel.Joueur.AxeAbcisse &&
+                    mondeAxeAbscisse - gamePanel.getTileSize()< gamePanel.Joueur.mondeAxeAbscisse + gamePanel.Joueur.AxeAbcisse &&
+                    mondeAxeOrdonnee + gamePanel.getTileSize()> gamePanel.Joueur.mondeAxeOrdonnee - gamePanel.Joueur.AxeOrdonnee &&
+                    mondeAxeOrdonnee - gamePanel.getTileSize()< gamePanel.Joueur.mondeAxeOrdonnee + gamePanel.Joueur.AxeOrdonnee){
+
+                g2.drawImage(tile[tileNum].image, AxeAbcisse, AxeOrdonnee,null);
+            }
+            worldCol++;
+
+            if(worldCol == gamePanel.getMaxWorldCol()){
+                worldCol = 0;
+                worldRow++;
+            }
+        }
+    }
+}
+
+File: ./src/Tile/Tile.java
+package Tile;
+
+import java.awt.image.BufferedImage;
+
+public class Tile {
+    //Image de la tile
+    public BufferedImage image;
+    //Indique si la tile est collidable ou non
+    public boolean collision = false;
+}
+File: ./src/main/CollisionChecker.java
+package main;
+
+import Entity.Entity;
+
+public class CollisionChecker {
+    GamePanel gamePanel;
+
+    public CollisionChecker(GamePanel gamePanel){
+        this.gamePanel = gamePanel;
+    }
+
+    public void checkTile(Entity entity){
+        int entityLeftmondeAxeAbscisse = entity.mondeAxeAbscisse + entity.hitboxCollision.x;
+        int entityRightmondeAxeAbscisse = entity.mondeAxeAbscisse + entity.hitboxCollision.x + entity.hitboxCollision.width;
+        int entityTopmondeAxeOrdonnee = entity.mondeAxeOrdonnee + entity.hitboxCollision.y;
+        int entityBottommondeAxeOrdonnee = entity.mondeAxeOrdonnee + entity.hitboxCollision.y + entity.hitboxCollision.height;
+
+        int entityLeftCol = entityLeftmondeAxeAbscisse/gamePanel.getTileSize();
+        int entityRightCol = entityRightmondeAxeAbscisse/gamePanel.getTileSize();
+        int entityTopRow = entityTopmondeAxeOrdonnee/gamePanel.getTileSize();
+        int entityBottomRow = entityBottommondeAxeOrdonnee/gamePanel.getTileSize();
+
+        int tileNum1, tileNum2;
+
+        switch (entity.direction){
+            case "up":
+               entityTopRow = (entityTopmondeAxeOrdonnee - entity.speed)/gamePanel.getTileSize();
+               tileNum1 = gamePanel.tileManager.mapTileNum[entityLeftCol][entityTopRow];
+               tileNum2 = gamePanel.tileManager.mapTileNum[entityRightCol][entityTopRow];
+
+               if(gamePanel.tileManager.tile[tileNum1].collision ||
+                       gamePanel.tileManager.tile[tileNum2].collision){
+                   entity.collisionOn = true;}
+                break;
+            case "down":
+                entityBottomRow = (entityBottommondeAxeOrdonnee + entity.speed)/gamePanel.getTileSize();
+                tileNum1 = gamePanel.tileManager.mapTileNum[entityLeftCol][entityBottomRow];
+                tileNum2 = gamePanel.tileManager.mapTileNum[entityRightCol][entityBottomRow];
+
+                if(gamePanel.tileManager.tile[tileNum1].collision ||
+                        gamePanel.tileManager.tile[tileNum2].collision){
+                    entity.collisionOn = true;}
+                break;
+            case "left":
+                entityLeftCol = (entityLeftmondeAxeAbscisse - entity.speed)/gamePanel.getTileSize();
+                tileNum1 = gamePanel.tileManager.mapTileNum[entityLeftCol][entityTopRow];
+                tileNum2 = gamePanel.tileManager.mapTileNum[entityLeftCol][entityBottomRow];
+
+                if(gamePanel.tileManager.tile[tileNum1].collision ||
+                        gamePanel.tileManager.tile[tileNum2].collision){
+                    entity.collisionOn = true;}
+                break;
+            case "right":
+                entityRightCol = (entityRightmondeAxeAbscisse + entity.speed)/gamePanel.getTileSize();
+                tileNum1 = gamePanel.tileManager.mapTileNum[entityRightCol][entityTopRow];
+                tileNum2 = gamePanel.tileManager.mapTileNum[entityRightCol][entityBottomRow];
+
+                if(gamePanel.tileManager.tile[tileNum1].collision ||
+                        gamePanel.tileManager.tile[tileNum2].collision){
+                    entity.collisionOn = true;}
+                break;
+        }
+    }
+
+    public int checkItem(Entity entity, boolean Joueur){
+        int index = 999;
+
+        for (int i = 0; i < gamePanel.items.length; i++) {
+            if(gamePanel.items[i] != null){
+
+                //get entity's hitboxCollision position
+                entity.hitboxCollision.x = entity.mondeAxeAbscisse + entity.hitboxCollision.x;
+                entity.hitboxCollision.y = entity.mondeAxeOrdonnee + entity.hitboxCollision.y;
+                //get item's hitboxCollision position
+                gamePanel.items[i].hitboxCollision.x = gamePanel.items[i].mondeAxeAbscisse + gamePanel.items[i].hitboxCollision.x;
+                gamePanel.items[i].hitboxCollision.y = gamePanel.items[i].mondeAxeOrdonnee + gamePanel.items[i].hitboxCollision.y;
+
+                //simulating entity movement and check where it will be, after it moved
+                entityCollisionDirection(entity);
+                if (entity.hitboxCollision.intersects(gamePanel.items[i].hitboxCollision)) {
+                    if(gamePanel.items[i].collision){
+                        entity.collisionOn = true;
+                    }
+                    if(Joueur) {
+                        index = i;
+                    }
+                }
+                //resetting positions
+                entity.hitboxCollision.y = entity.hitboxCollisionDefaultY;
+                entity.hitboxCollision.x = entity.hitboxCollisionDefaultX;
+                gamePanel.items[i].hitboxCollision.x = gamePanel.items[i].hitboxCollisionDefaultX;
+                gamePanel.items[i].hitboxCollision.y = gamePanel.items[i].hitboxCollisionDefaultY;
+            }
+        }
+        return  index;
+    }
+
+    public int checkEntity(Entity entity, Entity[] target){
+        int index = 999;
+
+        for (int i = 0; i < target.length; i++) {
+            if(target[i] != null){
+
+                //get entity's hitboxCollision position
+                entity.hitboxCollision.x = entity.mondeAxeAbscisse + entity.hitboxCollision.x;
+                entity.hitboxCollision.y = entity.mondeAxeOrdonnee + entity.hitboxCollision.y;
+                //get item's hitboxCollision position
+                target[i].hitboxCollision.x = target[i].mondeAxeAbscisse + target[i].hitboxCollision.x;
+                target[i].hitboxCollision.y = target[i].mondeAxeOrdonnee + target[i].hitboxCollision.y;
+
+                //simulating entity movement and check where it will be, after it moved
+                entityCollisionDirection(entity);
+                if (entity.hitboxCollision.intersects(target[i].hitboxCollision)) {
+                    if(target[i] != entity){
+                        entity.collisionOn = true;
+                        index = i;
+                    }
+                }
+
+                //resetting positions
+                entity.hitboxCollision.y = entity.hitboxCollisionDefaultY;
+                entity.hitboxCollision.x = entity.hitboxCollisionDefaultX;
+                target[i].hitboxCollision.x = target[i].hitboxCollisionDefaultX;
+                target[i].hitboxCollision.y = target[i].hitboxCollisionDefaultY;
+            }
+        }
+        return  index;
+    }
+
+    public boolean checkJoueur(Entity entity){
+
+        boolean contactJoueur = false;
+
+        //get entity's hitboxCollision position
+        entity.hitboxCollision.x = entity.mondeAxeAbscisse + entity.hitboxCollision.x;
+        entity.hitboxCollision.y = entity.mondeAxeOrdonnee + entity.hitboxCollision.y;
+        //get item's hitboxCollision position
+        gamePanel.Joueur.hitboxCollision.x = gamePanel.Joueur.mondeAxeAbscisse + gamePanel.Joueur.hitboxCollision.x;
+        gamePanel.Joueur.hitboxCollision.y = gamePanel.Joueur.mondeAxeOrdonnee + gamePanel.Joueur.hitboxCollision.y;
+
+        //simulating entity movement and check where it will be, after it moved
+        entityCollisionDirection(entity);
+
+        if (entity.hitboxCollision.intersects(gamePanel.Joueur.hitboxCollision)) {
+            entity.collisionOn = true;
+            contactJoueur = true;
+        }
+
+        //resetting positions
+        entity.hitboxCollision.y = entity.hitboxCollisionDefaultY;
+        entity.hitboxCollision.x = entity.hitboxCollisionDefaultX;
+        gamePanel.Joueur.hitboxCollision.x = gamePanel.Joueur.hitboxCollisionDefaultX;
+        gamePanel.Joueur.hitboxCollision.y = gamePanel.Joueur.hitboxCollisionDefaultY;
+
+        return contactJoueur;
+
+    }
+
+    private void entityCollisionDirection(Entity entity) {
+        switch (entity.direction) {
+            case "up" -> entity.hitboxCollision.y -= entity.speed;
+            case "down" -> entity.hitboxCollision.y += entity.speed;
+            case "left" -> entity.hitboxCollision.x -= entity.speed;
+            case "right" -> entity.hitboxCollision.x += entity.speed;
+        }
+    }
+}
+File: ./src/main/GamePanel.java
+package main;
+
+import Entity.Entity;
+import Entity.Joueur;
+import Tile.TileManager;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.Collections;
+
+public class GamePanel extends JPanel implements Runnable{
+
+    //Screen settings
+    final int originalTileSize = 16;
+    final int scale = 3;
+    final int tileSize = originalTileSize * scale;
+    final int maxScreenCol = 16;
+    final int maxScreenRow = 12;
+    final int screenWidth = tileSize * maxScreenCol;
+    final int screenHeight = tileSize * maxScreenRow;
+
+    //Getters and Setters
+    public int getTileSize() {return tileSize;}
+    public int getScreenWidth() {return screenWidth;}
+    public int getScreenHeight() {return screenHeight;}
+
+    //World settings
+    final int maxWorldCol = 50;
+    final int maxWorldRow = 50;
+
+    public int getMaxWorldCol() {return maxWorldCol;}
+    public int getMaxWorldRow() {return maxWorldRow;}
+
+   //System settings
+    TileManager tileManager = new TileManager(this);
+    public KeyHandler keyHandler = new KeyHandler(this);
+    Sound music = new Sound();
+    Sound sfx = new Sound();
+    public CollisionChecker checker = new CollisionChecker(this);
+    public SetterRessources SetterRessources = new SetterRessources(this);
+    public UI ui = new UI(this);
+    Thread gameThread;
+    public EventHandler eventHandler = new EventHandler(this);
+
+    //Joueur, NPC & Items
+    public Entity[] items = new Entity[10];
+    public Joueur Joueur = new Joueur(this, keyHandler);
+    public Entity[] npcs = new Entity[10];
+    public Entity[] monsters = new Entity[20];
+    ArrayList<Entity> entities = new ArrayList<>();
+
+    //Game state
+    public int gameState;
+    public final int EtatJeu = 1;
+    public final int EtatPause = 2;
+    public  final int EtatDialogue = 3;
+    public final int EtatJoueur = 4;
+    public final int titleState = 0;
+
+    //Constructor
+    public GamePanel(){
+        this.setPreferredSize(new Dimension(screenWidth, screenHeight));
+        this.setBackground(Color.BLACK);
+        this.setDoubleBuffered(true);
+        this.addKeyListener(keyHandler);
+        this.setFocusable(true);
+    }
+
+    public void gameSetup(){
+        SetterRessources.SetterObjet();
+        SetterRessources.SetterPNJ();
+        SetterRessources.SetterMob();
+        //playMusic(0);
+        gameState = titleState;
+    }
+
+    public void update(){
+        if(gameState == EtatJeu){
+            //Joueur
+            Joueur.update();
+            //npc
+            for (Entity npc : npcs) {
+                if (npc != null) {
+                    npc.update();
+                }
+            }
+
+
+            for (int i = 0; i < monsters.length; i++) {
+                if(monsters[i] != null){
+                    if (monsters[i].isAlive && !monsters[i].isDying) {
+                        monsters[i].update();
+                    }
+                    if(!monsters[i].isAlive){
+                        monsters[i] = null;
+                    }
+                }
+            }
+        }
+        if(gameState == EtatPause){
+            //nothing
+        }
+
+    }
+
+    //Drawing objects to the screen
+    @Override
+    public void paintComponent(Graphics g){
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D)g;
+
+        //Debug
+        long drawStart = 0;
+        if(keyHandler.checkDrawTime){
+            drawStart = System.nanoTime();
+        }
+
+        //Tile screen
+        if(gameState == titleState){
+        ui.draw(g2);
+        }
+        //others
+        else{
+            //Tiles
+            tileManager.draw(g2);
+
+            //Joueur
+            entities.add(Joueur);
+
+            //NPC
+            for (Entity npc : npcs) {
+                if (npc != null) {
+                    entities.add(npc);
+                }
+            }
+
+            //Monsters
+            for (Entity monster : monsters) {
+                if (monster != null) {
+                    entities.add(monster);
+                }
+            }
+
+            //Items
+            for (Entity item : items) {
+                if (item != null) {
+                    entities.add(item);
+                }
+            }
+
+            //Sort
+            Collections.sort(entities, (o1, o2) -> {
+                int result = Integer.compare(o1.mondeAxeOrdonnee, o2.mondeAxeOrdonnee);
+                return result;});
+            
+            //Draw entities
+            for (int i = 0; i < entities.size(); i++) {
+                entities.get(i).draw(g2);
+            }
+
+            //Reset entities
+            entities.clear();
+
+            //UI
+            ui.draw(g2);
+        }
+
+        //Debug
+        if(keyHandler.checkDrawTime){
+            long drawEnd = System.nanoTime();
+            long passed = drawEnd - drawStart;
+            g2.setColor(Color.WHITE);
+            g2.drawString("Draw Time: " + passed, 10, 400);
+            System.out.println("Draw Time: " + passed);
+        }
+        g2.dispose();
+    }
+
+    //Sounds & Music
+    public void playMusic(int index){
+        music.setFile(index);
+        music.play();
+        music.loop();
+    }
+
+    public void stopMusic(){
+        music.stop();
+    }
+
+    public void playSFX(int index){
+        sfx.setFile(index);
+        sfx.play();
+    }
+
+    //Game loop
+    @Override
+    public void run() {
+        int FPS = 60;
+        double drawInterval = 1000000000/FPS;
+        double nextDrawTime = System.nanoTime() + drawInterval;
+
+        while(gameThread != null) {
+            update();
+            repaint();
+
+            try {
+                double remainingTime = nextDrawTime - System.nanoTime();
+                remainingTime = remainingTime/1000000;
+                if(remainingTime < 0){
+                    remainingTime = 0;
+                }
+                Thread.sleep((long)remainingTime);
+                nextDrawTime += drawInterval;
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    //Staring game loop thread
+    public void startGameThread(){
+        gameThread = new Thread(this);
+        gameThread.start();
+    }
+}
+File: ./src/main/UI.java
+package main;
+
+import Entity.Entity;
+import Item.Coeur;
+
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+
+public class UI {
+
+    GamePanel gamePanel;
+    Graphics2D g2;
+    Font arial_40, arial_60B;
+    BufferedImage heart_full, heart_half, heart_blank;
+    public boolean messageOn = false;
+    ArrayList<String> message = new ArrayList<>();
+    ArrayList<Integer> messageCounter = new ArrayList<>();
+    public boolean gameFinished = false;
+    public String currentDialogue;
+    public int commandNum = 0;
+    public int titleScreenState = 0; //0: first screen, 1: second screen
+    public int slotCol = 0;
+    public int slotRow = 0;
+
+    public UI(GamePanel gamePanel){
+        this.gamePanel = gamePanel;
+        arial_40 = new Font("Arial", Font.PLAIN, 40);
+        arial_60B = new Font("Arial", Font.BOLD, 60);
+
+        //Create HUD object
+        Entity heart = new Coeur(gamePanel);
+        heart_full = heart.image;
+        heart_half = heart.image2;
+        heart_blank = heart.image3;
+    }
+
+    public void addMessage(String text){
+        message.add(text);
+        messageCounter.add(0);
+    }
+
+    public void draw(Graphics2D g2){
+        this.g2 = g2;
+
+        g2.setFont(arial_40);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setColor(Color.WHITE);
+
+        //Title State
+        if(gamePanel.gameState == gamePanel.titleState){
+            drawTitleScreen();
+        }
+
+        //Play state
+        if(gamePanel.gameState == gamePanel.EtatJeu){
+            drawJoueurPdv();
+            drawMessage();
+        }
+
+        //Pause state
+        if(gamePanel.gameState == gamePanel.EtatPause){
+            drawPauseScreen();
+            drawJoueurPdv();
+        }
+
+        //Dialogue state
+        if(gamePanel.gameState == gamePanel.EtatDialogue){
+            drawDialogueScreen();
+            drawJoueurPdv();
+        }
+
+        //Character state
+        if(gamePanel.gameState == gamePanel.EtatJoueur){
+            drawCharacterScreen();
+            drawinventaire();
+        }
+    }
+
+    public void drawJoueurPdv(){
+        int x = gamePanel.getTileSize()/5;
+        int y = gamePanel.getTileSize()*11;
+        int i = 0;
+
+        //Draw max Pdv
+        while(i < gamePanel.Joueur.PdvMax/2){
+            g2.drawImage(heart_blank, x, y, null);
+            i++;
+            x+= gamePanel.getTileSize();
+        }
+
+        //resetting values
+        x = gamePanel.getTileSize()/5;
+        y = gamePanel.getTileSize()*11;
+        i = 0;
+
+        //Draw current Pdv
+        while(i < gamePanel.Joueur.Pdv){
+            g2.drawImage(heart_half, x, y, null);
+            i++;
+            if(i < gamePanel.Joueur.Pdv){
+                g2.drawImage(heart_full, x, y, null);
+            }
+            i++;
+            x+= gamePanel.getTileSize();
+        }
+
+    }
+
+    public void drawMessage(){
+        int messageX = gamePanel.getTileSize();
+        int messageY = gamePanel.getTileSize()* 4;
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 30F));
+
+
+        for (int i = 0; i < message.size(); i++) {
+            if(message.get(i) != null){
+                g2.setColor(Color.BLACK);
+                g2.drawString(message.get(i), messageX+2, messageY +2);
+
+                g2.setColor(Color.WHITE);
+                g2.drawString(message.get(i), messageX, messageY);
+
+                int counter = messageCounter.get(i) +1; //messageCounter++
+                messageCounter.set(i, counter); //set the counter to the array
+                messageY += 50;
+
+                if(messageCounter.get(i) > 180){
+                    message.remove(i);
+                    messageCounter.remove(i);
+                }
+            }
+        }
+    }
+
+    public void drawTitleScreen(){
+        if(titleScreenState == 0){
+            //Title screen color
+            g2.setColor(new Color(30, 144, 255));
+            g2.fillRect(0, 0, gamePanel.screenWidth, gamePanel.screenHeight);
+
+            //Title name
+            g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 70F));
+            String text = "Blue Boy Adventure";
+            int x = getXForCenteredText(text);
+            int y = gamePanel.getTileSize()*3;
+
+            //Text shadow
+            g2.setColor(Color.BLACK);
+            g2.drawString(text, x+3, y+3);
+
+            //Main text color
+            g2.setColor(Color.WHITE);
+            g2.drawString(text, x, y);
+
+            //Blue boy image
+            x = gamePanel.getScreenWidth()/2 - ((gamePanel.getTileSize()*2)/2);
+            y += gamePanel.getTileSize()*2;
+            g2.drawImage(gamePanel.Joueur.bas1, x, y, gamePanel.getTileSize()*2, gamePanel.getTileSize()*2, null);
+
+            //Menu
+            g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 35F));
+
+            text = "NOUVELLE PARTIE";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize()*3.5;
+            g2.drawString(text, x, y);
+            if(commandNum == 0){
+                g2.drawString(">", x-gamePanel.getTileSize(), y);}
+
+
+            text = "CHARGER SAUVEGARDE";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize();
+            g2.drawString(text, x, y);
+            if(commandNum == 1){
+                g2.drawString(">", x-gamePanel.getTileSize(), y);}
+
+
+            text = "QUITTER";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize();
+            g2.drawString(text, x, y);
+            if(commandNum == 2){
+                g2.drawString(">", x-gamePanel.getTileSize(), y);}
+        }
+        else if (titleScreenState == 1){
+
+            //Character class selection screen
+            g2.setColor(new Color(30, 144, 255));
+            g2.fillRect(0, 0, gamePanel.screenWidth, gamePanel.screenHeight);
+
+            g2.setColor(Color.white);
+            g2.setFont(g2.getFont().deriveFont(25F));
+
+                String text = "SELECT YOUR STARTING CLASS";
+            int x = getXForCenteredText(text);
+            int y = gamePanel.getTileSize()*3;
+            g2.drawString(text, x, y);
+
+            text = "GUERRIER";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize()*2;
+            g2.drawString(text, x, y);
+            if(commandNum == 0) {
+                g2.drawString(">", x- gamePanel.getTileSize(), y);
+            }
+
+            text = "MAGE";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize();
+            g2.drawString(text, x, y);
+            if(commandNum == 1) {
+                g2.drawString(">", x- gamePanel.getTileSize(), y);
+            }
+
+            text = "SORCIER";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize();
+            g2.drawString(text, x, y);
+            if(commandNum == 2) {
+                g2.drawString(">", x- gamePanel.getTileSize(), y);
+            }
+
+            text = "RETOUR";
+            x = getXForCenteredText(text);
+            y += gamePanel.getTileSize()*2;
+            g2.drawString(text, x, y);
+            if(commandNum == 3) {
+                g2.drawString(">", x- gamePanel.getTileSize(), y);
+            }
+        }
+    }
+
+    public void drawPauseScreen(){
+        String text = "PAUSED";
+        int x = getXForCenteredText(text);
+        int y = gamePanel.screenHeight/2;
+
+        g2.drawString(text, x, y);
+    }
+
+    public void drawDialogueScreen() {
+        //window
+        int x = gamePanel.getTileSize()*2;
+        int y = gamePanel.getTileSize()/2;
+        int width = gamePanel.getScreenWidth() - (gamePanel.getTileSize()*4);
+        int height = gamePanel.getTileSize()*4;
+
+        drawSubWindow(x, y, width, height);
+
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20));
+        x += gamePanel.getTileSize();
+        y += gamePanel.getTileSize();
+
+        for(String line : currentDialogue.split("/n")){
+            g2.drawString(line, x, y);
+            y+=40;
+        }
+    }
+
+    public void drawCharacterScreen(){
+        //Create a frame
+        final int frameX = gamePanel.getTileSize()*10;
+        final int frameY = gamePanel.getTileSize();
+        final int frameWidth = gamePanel.getTileSize() * 5;
+        final int frameHeight = gamePanel.getTileSize() * 10;
+        drawSubWindow(frameX, frameY, frameWidth, frameHeight);
+
+        //Text
+        g2.setColor(Color.white);
+        g2.setFont(g2.getFont().deriveFont(25F));
+
+        int textX = frameX + 20;
+        int textY = frameY + gamePanel.getTileSize();
+        final int lineHeight = 40;
+
+        //Attributes
+        g2.drawString("Level", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Pdv", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Strength", textX, textY);
+        textY += lineHeight;
+        g2.drawString("agilite", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Attack", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Defence", textX, textY);
+        textY += lineHeight;
+        g2.drawString("EXP", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Next Level", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Argent", textX, textY);
+        textY += lineHeight + 8;
+        g2.drawString("Weapon", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Shield", textX, textY);
+
+        //Values
+        int tailX = (frameX + frameWidth) - 30;
+        textY = frameY + gamePanel.getTileSize();
+        String value;
+
+        value = String.valueOf(gamePanel.Joueur.level);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = gamePanel.Joueur.Pdv + "/" + gamePanel.Joueur.PdvMax;
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.strenght);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.agilite);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.attack);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.defence);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.exp);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.niveauSuivantExperience);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gamePanel.Joueur.Argent);
+        textX = getXForAlignment(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += 10;
+
+        g2.drawImage(gamePanel.Joueur.ArmeActuelle.bas1, tailX - gamePanel.getTileSize(), textY, null);
+        textY += gamePanel.getTileSize();
+
+        g2.drawImage(gamePanel.Joueur.BouclierActuel.bas1, tailX - gamePanel.getTileSize(), textY - 6, null);
+    }
+
+    public void drawinventaire(){
+        //Frame
+        int frameX = gamePanel.getTileSize();
+        int frameY = gamePanel.getTileSize();
+        int frameWidth = gamePanel.getTileSize()*6;
+        int frameHeight = gamePanel.getTileSize()*5;
+        drawSubWindow(frameX, frameY, frameWidth,frameHeight);
+
+        //Slot
+        final int slotXstart = frameX + 20;
+        final int slotYstart = frameY + 20;
+        int slotX = slotXstart;
+        int slotY = slotYstart;
+
+
+        //Draw Joueur's items
+        for (int i = 0; i < gamePanel.Joueur.inventaire.size(); i++) {
+
+            //Equip cursor
+            if(gamePanel.Joueur.inventaire.get(i) == gamePanel.Joueur.ArmeActuelle ||
+            gamePanel.Joueur.inventaire.get(i) == gamePanel.Joueur.BouclierActuel){
+                g2.setColor(Color.orange);
+                g2.fillRoundRect(slotX, slotY, 46, 46, 10, 10);
+            }
+
+            g2.drawImage(gamePanel.Joueur.inventaire.get(i).bas1, slotX, slotY, null);
+            slotX += gamePanel.getTileSize();
+
+            if(i == 4 || i == 9 || i == 14){
+                slotX = slotXstart;
+                slotY += gamePanel.getTileSize();
+            }
+        }
+
+        //Cursor
+        int cursorX = slotXstart + (gamePanel.getTileSize() * slotCol);
+        int cursorY = slotYstart + (gamePanel.getTileSize() * slotRow);
+        int cursorWidth = gamePanel.getTileSize();
+        int cursorHeight = gamePanel.getTileSize();
+
+        //Draw cursor
+        g2.setColor(Color.WHITE);
+        g2.setStroke(new BasicStroke(3));
+        g2.drawRoundRect(cursorX, cursorY, cursorWidth, cursorHeight, 10, 10);
+
+        //Item description frame
+        int dFrameX = frameX;
+        int dFrameY = frameY + frameHeight;
+        int dFrameWidth = frameWidth;
+        int dFrameHeight = gamePanel.getTileSize()*4;
+
+
+        //Draw item text
+        int textX = dFrameX + 15;
+        int textY = dFrameY + 40;
+        g2.setFont(g2.getFont().deriveFont(20F));
+
+        int itemIndex = getItemIndexOnSlot();
+
+        if(itemIndex < gamePanel.Joueur.inventaire.size()){
+            drawSubWindow(dFrameX, dFrameY, dFrameWidth, dFrameHeight);
+
+            for(String line: gamePanel.Joueur.inventaire.get(itemIndex).itemDescription.split("/n")){
+                g2.drawString(line, textX, textY);
+                textY += 32;
+            }
+        }
+    }
+
+    public int getItemIndexOnSlot(){
+        return slotCol + (slotRow * 5);
+    }
+
+    public void drawSubWindow(int x, int y, int width, int height){
+
+        Color c = new Color(0,0,0,210); //a = opacity
+        g2.setColor(c);
+        g2.fillRoundRect(x, y, width, height, 35, 35);
+
+        c = new Color(255, 255, 255);
+        g2.setColor(c);
+        g2.setStroke(new BasicStroke(5));
+        g2.drawRoundRect(x+5, y+5, width-10, height-10, 25, 25);
+
+    }
+
+    public int getXForCenteredText(String text){
+        int length = (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth();
+        return gamePanel.screenWidth/2 - length/2;
+    }
+
+    public int getXForAlignment(String text, int tailX){
+        int length = (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth();
+        return tailX - length;
+    }
+}
+File: ./src/main/EventHandler.java
+package main;
+
+public class EventHandler {
+
+    GamePanel gamePanel;
+    EventRect[][] eventRect;
+    int previousEventX, previousEventY;
+    boolean canTouchEvent = true;
+
+    public EventHandler(GamePanel gamePanel){
+        this.gamePanel = gamePanel;
+
+        //Setting small event trigger in the middle of tiles, Making it possible to trigger events where necessary.
+        eventRect = new EventRect[gamePanel.getMaxWorldCol()][gamePanel.getMaxWorldRow()];
+
+        int col = 0;
+        int row = 0;
+        while(col < gamePanel.getMaxWorldCol() && row < gamePanel.getMaxWorldRow()){
+            eventRect[col][row] = new EventRect();
+            eventRect[col][row].x = 23;
+            eventRect[col][row].y = 23;
+            eventRect[col][row].width = 2;
+            eventRect[col][row].height = 2;
+            eventRect[col][row].eventRectDefaultX = eventRect[col][row].x;
+            eventRect[col][row].eventRectDefaultY = eventRect[col][row].y;
+
+            col++;
+            if(col == gamePanel.getMaxWorldCol()){
+                col = 0;
+                row++;
+            }
+        }
+    }
+
+    public void checkEvent(){
+        //Check if Joueur is more than one tile away from last event.
+        int xDistance = Math.abs(gamePanel.Joueur.mondeAxeAbscisse - previousEventX);
+        int yDistance = Math.abs(gamePanel.Joueur.mondeAxeOrdonnee - previousEventY);
+        int distance = Math.max(xDistance, yDistance);
+        if(distance > gamePanel.getTileSize()){
+            canTouchEvent = true;
+        }
+
+        if(canTouchEvent){
+            if(hit(27, 16, "right")){squirrelAttack(27, 16, gamePanel.EtatDialogue);}
+            if(hit(23, 12, "up")){healingPool(23, 12, gamePanel.EtatDialogue);}
+        }
+    }
+
+    public boolean hit(int col, int row, String reqDirection){
+        boolean hit = false;
+
+        //getting Joueur position
+        gamePanel.Joueur.hitboxCollision.x = gamePanel.Joueur.mondeAxeAbscisse + gamePanel.Joueur.hitboxCollision.x;
+        gamePanel.Joueur.hitboxCollision.y = gamePanel.Joueur.mondeAxeOrdonnee + gamePanel.Joueur.hitboxCollision.y;
+
+        //getting event trigger position
+        eventRect[col][row].x = col* gamePanel.getTileSize() + eventRect[col][row].x;
+        eventRect[col][row].y = row* gamePanel.getTileSize() + eventRect[col][row].y;
+
+        //checking for collision, event only happens if eventDone returns false
+        if(gamePanel.Joueur.hitboxCollision.intersects(eventRect[col][row]) && !eventRect[col][row].eventDone){
+            if(gamePanel.Joueur.direction.contentEquals(reqDirection) ||
+            reqDirection.contentEquals("any")){
+                hit = true;
+
+                //record Joueur position after hit
+                previousEventX = gamePanel.Joueur.mondeAxeAbscisse;
+                previousEventY = gamePanel.Joueur.mondeAxeOrdonnee;
+            }
+        }
+
+        //after checking for collision, reset x and y on eventRect and hitboxCollision
+        gamePanel.Joueur.hitboxCollision.x = gamePanel.Joueur.hitboxCollisionDefaultX;
+        gamePanel.Joueur.hitboxCollision.y = gamePanel.Joueur.hitboxCollisionDefaultY;
+        eventRect[col][row].x =  eventRect[col][row].eventRectDefaultX;
+        eventRect[col][row].y =  eventRect[col][row].eventRectDefaultY;
+
+        return hit;
+    }
+
+    public void squirrelAttack(int col, int row, int gameState){
+        gamePanel.gameState = gameState;
+        gamePanel.ui.currentDialogue = "You got bitten by an angry squirrel./nHe ran away before you could get your revenge.";
+        gamePanel.Joueur.Pdv -= 1;
+        //eventRect[col][row].eventDone = true;
+        canTouchEvent = false;
+        gamePanel.playSFX(5);
+    }
+
+    public void healingPool(int col, int row,int gameState){
+
+        if(gamePanel.keyHandler.enterPressed){
+            gamePanel.gameState = gameState;
+            gamePanel.ui.currentDialogue = "Pdv was restored. You feel refreshed.";
+            gamePanel.Joueur.Pdv = gamePanel.Joueur.PdvMax;
+            gamePanel.Joueur.AnnulationAttaque = true;
+            gamePanel.playSFX(2);
+
+            //respawn monsters
+            gamePanel.SetterRessources.SetterMob();
+        }
+    }
+
+    public void teleport(int col, int row,int gameState){
+        gamePanel.gameState = gameState;
+        gamePanel.Joueur.mondeAxeAbscisse = gamePanel.getTileSize()*37; //set to specific tile
+        gamePanel.Joueur.mondeAxeOrdonnee = gamePanel.getTileSize()*10; //set to specific tile
+    }
+}
+File: ./src/main/Sound.java
+package main;
+
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import java.net.URL;
+
+/**
+ * Cette classe gère les sons du jeu.
+ */
+public class Sound {
+
+    // Objet Clip utilisé pour jouer le son
+    Clip clip;
+    // Tableau de URL contenant les chemins vers les fichiers audio
+    URL soundURL[] = new URL[30];
+
+    /**
+     * Constructeur de la classe.
+     * Initialise les URL des fichiers audio dans le tableau.
+     */
+    public Sound(){
+        soundURL[0] = getClass().getResource("/Sound/BlueBoyAdventure.wav");
+        soundURL[1] = getClass().getResource("/Sound/coin.wav");
+        soundURL[2] = getClass().getResource("/Sound/powerup.wav");
+        soundURL[3] = getClass().getResource("/Sound/unlock.wav");
+        soundURL[4] = getClass().getResource("/Sound/fanfare.wav");
+        soundURL[5] = getClass().getResource("/Sound/hitmonster.wav");
+        soundURL[6] = getClass().getResource("/Sound/receivedamage.wav");
+        soundURL[7] = getClass().getResource("/Sound/cuttree.wav");
+        soundURL[8] = getClass().getResource("/Sound/levelup.wav");
+        soundURL[8] = getClass().getResource("/Sound/cursor.wav");
+    }
+
+    /**
+     * Méthode pour charger un fichier audio dans l'objet Clip.
+     * @param index L'index du fichier audio dans le tableau soundURL.
+     */
+    public void setFile(int index){
+        try {
+
+            AudioInputStream stream = AudioSystem.getAudioInputStream(soundURL[index]);
+            clip = AudioSystem.getClip();
+            clip.open(stream);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * Méthode pour jouer le son chargé dans l'objet Clip.
+     */
+    public void play(){
+
+        clip.start();
+
+    }
+
+    /**
+     * Méthode pour jouer en boucle le son chargé dans l'objet Clip.
+     */
+    public void loop(){
+
+        clip.loop(Clip.LOOP_CONTINUOUSLY);
+
+    }
+
+    /**
+     * Méthode pour arrêter de jouer le son chargé dans l'objet Clip.
+     */
+    public void stop(){
+
+        clip.stop();
+
+    }
+
+
+
+}
+File: ./src/main/SetterRessources.java
+package main;
+
+import Entity.sage;
+import Item.Cle;
+import monster.MON_GreenSlime;
+
+/**
+ * Cette classe sert à définir les différents éléments du jeu, comme les objets, les personnages non-joueurs (PNJ) et les monstres.
+ */
+public class SetterRessources {
+
+    // Panneau de jeu dans lequel se trouvent les éléments
+    GamePanel gamePanel;
+
+    public SetterRessources(GamePanel gamePanel) {
+        this.gamePanel = gamePanel;
+    }
+
+    /**
+     * Crée et positionne les objets dans le jeu.
+     */
+    public void SetterObjet() {
+
+        int i = 0;
+
+        gamePanel.items[i] = new Cle(gamePanel);
+        gamePanel.items[i].mondeAxeAbscisse = gamePanel.getTileSize()*25;
+        gamePanel.items[i].mondeAxeOrdonnee = gamePanel.getTileSize()*23;
+        i++;
+
+        gamePanel.items[i] = new Cle(gamePanel);
+        gamePanel.items[i].mondeAxeAbscisse = gamePanel.getTileSize()*21;
+        gamePanel.items[i].mondeAxeOrdonnee = gamePanel.getTileSize()*19;
+        i++;
+
+        gamePanel.items[i] = new Cle(gamePanel);
+        gamePanel.items[i].mondeAxeAbscisse = gamePanel.getTileSize()*26;
+        gamePanel.items[i].mondeAxeOrdonnee = gamePanel.getTileSize()*21;
+    }
+
+    /**
+     * Crée et positionne les PNJ dans le jeu.
+     */
+    public void SetterPNJ() {
+        gamePanel.npcs[0] = new sage(gamePanel);
+        gamePanel.npcs[0].mondeAxeAbscisse = gamePanel.getTileSize() * 21;
+        gamePanel.npcs[0].mondeAxeOrdonnee = gamePanel.getTileSize() * 21;
+    }
+
+    /**
+     * Crée et positionne les monstres dans le jeu.
+     */
+    public void SetterMob(){
+        int i = 0;
+
+        gamePanel.monsters[i] = new MON_GreenSlime(gamePanel);
+        gamePanel.monsters[i].mondeAxeAbscisse = gamePanel.getTileSize()*23;
+        gamePanel.monsters[i].mondeAxeOrdonnee = gamePanel.getTileSize()*36;
+
+        i++;
+
+        gamePanel.monsters[i] = new MON_GreenSlime(gamePanel);
+        gamePanel.monsters[i].mondeAxeAbscisse = gamePanel.getTileSize()*23;
+        gamePanel.monsters[i].mondeAxeOrdonnee = gamePanel.getTileSize()*37;
+
+        i++;
+
+        gamePanel.monsters[i] = new MON_GreenSlime(gamePanel);
+        gamePanel.monsters[i].mondeAxeAbscisse = gamePanel.getTileSize()*23;
+        gamePanel.monsters[i].mondeAxeOrdonnee = gamePanel.getTileSize()*38;
+
+        i++;
+
+        gamePanel.monsters[i] = new MON_GreenSlime(gamePanel);
+        gamePanel.monsters[i].mondeAxeAbscisse = gamePanel.getTileSize()*23;
+        gamePanel.monsters[i].mondeAxeOrdonnee = gamePanel.getTileSize()*39;
+    }
+}
+File: ./src/main/UtilityTool.java
+package main;
+
+import java.awt.*;
+import java.awt.image.BufferedImage;
+/**UtilityTool est une classe qui contient une méthode permettant de redimensionner une image
+mise à l'echelle des images */
+public class UtilityTool {
+
+
+
+
+    /**
+    La méthode "scaleImage" prend en paramètres l'image à redimensionner, ainsi que
+     la largeur et la hauteur souhaitées pour la nouvelle image
+
+     Elle crée une nouvelle image de la taille souhaitée et utilise la classe
+     Graphics2D pour dessiner l'image originale dans la nouvelle image redimensionnée
+*/
+    public BufferedImage scaleImage(BufferedImage original, int width, int height){
+        BufferedImage scaledImage = new BufferedImage(width, height, original.getType());
+        Graphics2D g2 = scaledImage.createGraphics();
+        g2.drawImage(original, 0,0, width, height, null);
+        g2.dispose();
+
+        return scaledImage; // retourne ensuite la nouvelle image redimensionnée
+    }
+}
+File: ./src/main/KeyHandler.java
+package main;
+
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+
+/**
+ *
+ *  KeyHandler est la classe qui gère les entrées clavier de l'utilisateur
+ *  Elle implémente l'interface KeyListener afin de recevoir les évènements clavier
+ */
+public class KeyHandler implements KeyListener {
+
+    /**
+     *  Ces variables booléennes vont nous servir à savoir quelles touches sont enfoncées
+     */
+    public boolean upPressed, downPressed, leftPressed, rightPressed, enterPressed;
+    //Debug
+    boolean checkDrawTime = false;// On stocke une référence vers GamePanel pour pouvoir agir sur l'état du jeu
+    public GamePanel gamePanel;
+
+    public KeyHandler(GamePanel gamePanel){
+
+        this.gamePanel = gamePanel;
+    }
+
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+// doit être implémentée
+    }
+
+    //Méthode appelée lorsqu'une touche est pressée
+    @Override
+    public void keyPressed(KeyEvent e) {
+        //Récupère le code de la touche pressée
+        int key = e.getKeyCode();
+
+        //Si le jeu se trouve dans l'état "titleState" (écran titre)
+        if(gamePanel.gameState == gamePanel.titleState) {
+            //Appelle la méthode titleState en lui passant en paramètre le code de la touche pressée
+            titleState(key);
+        }
+        //Si le jeu se trouve dans l'état "EtatJeu" (joueur en jeu)
+        else if (gamePanel.gameState == gamePanel.EtatJeu) {
+            //Appelle la méthode EtatJeu en lui passant en paramètre le code de la touche pressée
+            EtatJeu(key);
+        }
+        //Si le jeu se trouve dans l'état "EtatPause" (jeu en pause)
+        else if (gamePanel.gameState == gamePanel.EtatPause){
+            //Appelle la méthode EtatPause en lui passant en paramètre le code de la touche pressée
+            EtatPause(key);
+        }
+        //Si le jeu se trouve dans l'état "EtatDialogue" (boîte de dialogue)
+        else if(gamePanel.gameState == gamePanel.EtatDialogue){
+            //Appelle la méthode EtatDialogue en lui passant en paramètre le code de la touche pressée
+            EtatDialogue(key);
+        }
+        //Si le jeu se trouve dans l'état "EtatJoueur" (écran de sélection de personnage)
+        else if(gamePanel.gameState == gamePanel.EtatJoueur){
+            //Appelle la méthode EtatJoueur en lui passant en paramètre le code de la touche pressée
+            EtatJoueur(key);
+        }
+    }
+
+    public void titleState(int key){
+        if(gamePanel.ui.titleScreenState == 0){
+            if (key == KeyEvent.VK_W) {
+                gamePanel.ui.commandNum--;
+                if(gamePanel.ui.commandNum<0){
+                    gamePanel.ui.commandNum = 2;
+                }
+            }
+            if (key == KeyEvent.VK_S) {
+                gamePanel.ui.commandNum++;
+                if(gamePanel.ui.commandNum>2){
+                    gamePanel.ui.commandNum = 0;
+                }
+            }
+            if (key == KeyEvent.VK_ENTER) {
+                switch (gamePanel.ui.commandNum){
+                    case 0:
+                        gamePanel.ui.titleScreenState = 1;
+                        break;
+                    case 1:
+                        //add later
+                        break;
+                    case 2:
+                        System.exit(0);
+                        break;
+                }
+            }
+        }
+        else if(gamePanel.ui.titleScreenState == 1){
+            if (key == KeyEvent.VK_W) {
+                gamePanel.ui.commandNum--;
+                if(gamePanel.ui.commandNum<0){
+                    gamePanel.ui.commandNum = 3;
+                }
+            }
+            if (key == KeyEvent.VK_S) {
+                gamePanel.ui.commandNum++;
+                if(gamePanel.ui.commandNum>3){
+                    gamePanel.ui.commandNum = 0;
+                }
+            }
+            if (key == KeyEvent.VK_ENTER) {
+                switch (gamePanel.ui.commandNum) {
+                    case 0 -> {
+                        System.out.println("Joue comme un guerrier !");
+                        gamePanel.gameState = gamePanel.EtatJeu;
+                        //gamePanel.playMusic(0);
+                    }
+                    case 1 -> {
+                        System.out.println("Joue comme un mage ! ");
+                        gamePanel.gameState = gamePanel.EtatJeu;
+                        gamePanel.playMusic(0);
+                    }
+                    case 2 -> {
+                        System.out.println("Joue comme un sorcier ! ");
+                        gamePanel.gameState = gamePanel.EtatJeu;
+                        gamePanel.playMusic(0);
+                    }
+                    case 3 -> gamePanel.ui.titleScreenState = 0;
+                }
+            }
+        }
+    }
+
+    public void EtatJeu(int key){
+        if(key == KeyEvent.VK_W) {
+            upPressed = true;
+        }
+        if(key == KeyEvent.VK_S) {
+            downPressed = true;
+        }
+        if(key == KeyEvent.VK_A) {
+            leftPressed = true;
+        }
+        if(key == KeyEvent.VK_D) {
+            rightPressed = true;
+        }
+        if(key == KeyEvent.VK_ENTER) {
+            enterPressed = true;
+        }
+        if(key == KeyEvent.VK_SPACE) {
+            gamePanel.gameState = gamePanel.EtatJoueur;
+        }
+        if(key == KeyEvent.VK_P) {
+            gamePanel.gameState = gamePanel.EtatPause;
+        }
+
+        //Debug
+        if(key == KeyEvent.VK_T) {
+            if(!checkDrawTime){
+                checkDrawTime = true;
+            }
+            else if(checkDrawTime){
+                checkDrawTime = false;
+            }
+        }
+    }
+
+    public void EtatJoueur(int key){
+        if(key == KeyEvent.VK_SPACE) {
+            gamePanel.gameState = gamePanel.EtatJeu;
+        }
+        if(key == KeyEvent.VK_W && gamePanel.ui.slotRow != 0){
+                gamePanel.ui.slotRow--;
+                gamePanel.playSFX(8);
+        }
+        if(key == KeyEvent.VK_A && gamePanel.ui.slotCol != 0){
+            gamePanel.ui.slotCol--;
+            gamePanel.playSFX(8);
+        }
+        if(key == KeyEvent.VK_S && gamePanel.ui.slotRow != 3){
+            gamePanel.ui.slotRow++;
+            gamePanel.playSFX(8);
+        }
+        if(key == KeyEvent.VK_D && gamePanel.ui.slotCol != 4){
+            gamePanel.ui.slotCol++;
+            gamePanel.playSFX(8);
+        }
+        if(key == KeyEvent.VK_ENTER){
+            gamePanel.Joueur.selectiondelObjet();
+        }
+    }
+
+    public void EtatPause(int key){
+        if(key == KeyEvent.VK_P){
+            gamePanel.gameState = gamePanel.EtatJeu;
+        }
+
+    }
+
+    public void EtatDialogue(int key){
+        if(key == KeyEvent.VK_ENTER){
+            gamePanel.gameState = gamePanel.EtatJeu;
+        }
+    }
+    //Méthode appelée lorsqu'une touche est relâchée
+    @Override
+    public void keyReleased(KeyEvent e) {
+        int key = e.getKeyCode();
+
+        if(key == KeyEvent.VK_W) {
+            upPressed = false;
+        }
+        if(key == KeyEvent.VK_S) {
+            downPressed = false;
+        }
+        if(key == KeyEvent.VK_A) {
+            leftPressed = false;
+        }
+        if(key == KeyEvent.VK_D) {
+            rightPressed = false;
+        }
+    }
+}
+File: ./src/main/EventRect.java
+package main;
+
+import java.awt.*;
+
+/**
+ * La classe EventRect étend la classe Rectangle et permet de définir un rectangle qui peut déclencher un événement lorsque le joueur entre en contact avec lui.
+ */
+public class EventRect extends Rectangle {
+    /**
+La position par défaut en abscisse et ordonnée du rectangle d'événement.
+*/
+
+    int eventRectDefaultX, eventRectDefaultY;
+    boolean eventDone = false;
+
+}
+File: ./src/main/Main.java
+package main;
+
+import javax.swing.*;
+
+public class Main {
+
+    public static void main(String[] args) {
+
+        //Création de la fenêtre JFrame contenant le panneau de jeu
+        JFrame window = new JFrame();
+        window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); //Action à effectuer lorsque la fenêtre est fermée
+        window.setResizable(false); //Désactivation de la possibilité de redimensionner la fenêtre
+        window.setTitle("Aventure d'exploration"); //Titre de la fenêtre
+
+        //Configuration du panneau de jeu et de la mise en place du jeu, démarrage de l'objet de thread de jeu et affichage de tout cela sur l'écran
+        GamePanel gamePanel = new GamePanel(); //Création d'un objet GamePanel
+        window.add(gamePanel); //Ajout de l'objet GamePanel à la fenêtre JFrame
+        window.pack(); //Configuration de la fenêtre JFrame
+        window.setLocationRelativeTo(null); //Centrage de la fenêtre sur l'écran
+        window.setVisible(true); //Affichage de la fenêtre
+        gamePanel.gameSetup(); //Configuration du jeu
+        gamePanel.startGameThread(); //Démarrage de l'objet de thread de jeu
+    }
+}
+File: ./src/Item/BouclierBois.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class BouclierBois extends Entity {
+
+    public BouclierBois(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Bouclier en Bois";
+        type = type_shield;
+        bas1 = setup("/Object/shield_wood", gamePanel.getTileSize(), gamePanel.getTileSize());
+        defenceValue = 1;
+        itemDescription = "[" + name + "]/n Ancien bouclier en bois.";
+    }
+}
+File: ./src/Item/Cle.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class Cle extends Entity {
+
+    public Cle(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Key";
+        bas1 = setup("/Object/key", gamePanel.getTileSize(), gamePanel.getTileSize());
+        collision = true;
+    }
+
+}
+File: ./src/Item/Porte.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class Porte extends Entity {
+
+    public Porte(GamePanel gamePanel){
+        super(gamePanel);
+        name = "Porte";
+        bas1 = setup("/Object/door", gamePanel.getTileSize(), gamePanel.getTileSize());
+        collision = true;
+
+        hitboxCollision.x = 0;
+        hitboxCollision.y = 16;
+        hitboxCollision.width = 48;
+        hitboxCollision.height = 32;
+        hitboxCollisionDefaultX = hitboxCollision.x;
+        hitboxCollisionDefaultY = hitboxCollision.y;
+    }
+}
+File: ./src/Item/BouclierBleu.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class BouclierBleu extends Entity {
+
+    public BouclierBleu(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Bouclier Bleu";
+        type = type_shield;
+        bas1 = setup("/Object/shield_blue", gamePanel.getTileSize(), gamePanel.getTileSize());
+        defenceValue = 2;
+        itemDescription = "[" + name + "]/nBouclier bleu , un peu pourri";
+    }
+}
+File: ./src/Item/Hache.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class Hache extends Entity {
+
+    public Hache(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Hache en bois";
+        type = type_axe;
+        bas1 = setup("/Object/axe", gamePanel.getTileSize(), gamePanel.getTileSize());
+        attackValue = 2;
+        HitboxDeLattaque.width = 30;
+        HitboxDeLattaque.height = 30;
+        itemDescription = "[" + name + "]/n Petite hache inoffensive";
+    }
+}
+File: ./src/Item/Bottes.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class Bottes extends Entity {
+
+    public Bottes(GamePanel gamePanel){
+        super(gamePanel);
+        name = "Bottes";
+        bas1 = setup("/Object/boots", gamePanel.getTileSize(), gamePanel.getTileSize());
+    }
+}
+File: ./src/Item/Epee.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class Epee extends Entity {
+
+    public Epee(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Epee";
+        type = type_sword;
+        bas1 = setup("/Object/sword_normal", gamePanel.getTileSize(), gamePanel.getTileSize());
+        attackValue = 1;
+        HitboxDeLattaque.width = 36;
+        HitboxDeLattaque.height = 36;
+        itemDescription = "[" + name + "]/n Une belle petite épée";
+    }
+}
+File: ./src/Item/PotionRouge.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+public class PotionRouge extends Entity {
+
+    int healingValue = 5;
+
+    public PotionRouge(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Red Potion";
+        type = type_consumable;
+        bas1 = setup("/Object/potion_red", gamePanel.getTileSize(), gamePanel.getTileSize());
+        itemDescription = "[Red Potion]/nReplenishes HP by" + healingValue + ".";
+    }
+
+    @Override
+    public void use(Entity entity){
+        gamePanel.gameState = gamePanel.EtatDialogue;
+        gamePanel.ui.currentDialogue = "You drank the " + name + "!/n" +
+        "You feel refreshed";
+
+        entity.Pdv += healingValue;
+        if(gamePanel.Joueur.Pdv > gamePanel.Joueur.PdvMax){
+            gamePanel.Joueur.Pdv = gamePanel.Joueur.PdvMax;
+        }
+        gamePanel.playSFX(2);
+    }
+}
+File: ./src/Item/Coeur.java
+package Item;
+
+import Entity.Entity;
+import main.GamePanel;
+
+import javax.imageio.ImageIO;
+import java.io.IOException;
+import java.util.Objects;
+
+public class Coeur extends Entity {
+
+    public Coeur(GamePanel gamePanel) {
+        super(gamePanel);
+        name = "Coeur";
+        image = setup("/Object/heart_full", gamePanel.getTileSize(), gamePanel.getTileSize());
+        image2 = setup("/Object/heart_half", gamePanel.getTileSize(), gamePanel.getTileSize());
+        image3 = setup("/Object/heart_blank", gamePanel.getTileSize(), gamePanel.getTileSize());
+    }
+}
+File: ./src/monster/MON_GreenSlime.java
+package monster;
+
+import Entity.Entity;
+import main.GamePanel;
+
+import java.util.Random;
+
+
+public class MON_GreenSlime extends Entity {
+
+    // Constructeur de la classe MON_GreenSlime
+    public MON_GreenSlime(GamePanel gamePanel) {
+        // Appel au constructeur de la classe mère (Entity)
+        super(gamePanel);
+
+        // Définition des attributs de l'objet MON_GreenSlime
+        name = "Slime vert";
+        type = type_monster;
+        speed = 1;
+        PdvMax = 5;
+        Pdv = PdvMax;
+        attack = 5;
+        defence = 0;
+        exp = 2;
+
+        // Définition de la hitbox de collision de l'objet MON_GreenSlime
+        hitboxCollision.x = 3;
+        hitboxCollision.y = 18;
+        hitboxCollision.width = 42;
+        hitboxCollision.height = 30;
+        hitboxCollisionDefaultX = hitboxCollision.x;
+        hitboxCollisionDefaultY = hitboxCollision.y;
+
+        // Chargement des images de l'objet MON_GreenSlime
+        getImage();
+    }
+
+    // Méthode pour charger les images de l'objet MON_GreenSlime
+    public void getImage(){
+        // Chemin d'accès aux images du monstre
+        String monster1 = "/Monster/greenslime_down_1";
+        String monster2 = "/Monster/greenslime_down_2";
+
+        // Chargement des images du monstre dans les variables d'instance
+        haut1 = setup(monster1, gamePanel.getTileSize(), gamePanel.getTileSize());
+        haut2 = setup(monster2, gamePanel.getTileSize(), gamePanel.getTileSize());
+        bas1 = setup(monster1, gamePanel.getTileSize(), gamePanel.getTileSize());
+        bas2 = setup(monster2, gamePanel.getTileSize(), gamePanel.getTileSize());
+        gauche1 = setup(monster1, gamePanel.getTileSize(), gamePanel.getTileSize());
+        gauche2 = setup(monster2, gamePanel.getTileSize(), gamePanel.getTileSize());
+        droit1 = setup(monster1, gamePanel.getTileSize(), gamePanel.getTileSize());
+        droit2 = setup(monster2, gamePanel.getTileSize(), gamePanel.getTileSize());
+    }
+
+    // Méthode pour définir l'action de l'objet MON_GreenSlime
+    public void SetterAction(){
+        CompteurAction++;
+
+        if(CompteurAction == 120){
+            Random random = new Random();
+            int i = random.nextInt(100)+1;
+
+            if(i <= 25){
+                direction = "up";
+            }
+            if(i > 25 && i <= 50){
+                direction = "down";
+            }
+            if(i > 50 && i <= 75){
+                direction = "left";
+            }
+            if(i > 75 && i <= 100){
+                direction = "right";
+            }
+
+            CompteurAction = 0;
+        }
+    }
+
+    @Override
+    public void damageReaction(){
+
+        CompteurAction = 0;
+        // le monstre bouge losrqu'il recoit des degats
+
+        direction = gamePanel.Joueur.direction;
+    }
+}
