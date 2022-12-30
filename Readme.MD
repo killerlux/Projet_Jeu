@@ -17,10 +17,12 @@
 
 ### Installation
 1. **Clone the repository:**
-2. 
-`git clone https://github.com/killerlux/Projet_Jeu.git`
-2. 
-2. **Open the project in your IDE:**
+```bash
+git clone https://github.com/killerlux/Projet_Jeu.git
+cd Projet_Jeu
+```
+
+2.**Open the project in your IDE:**
 - Import the project as a Maven/Gradle project depending on your setup.
 - Let the IDE resolve the dependencies automatically.
 
